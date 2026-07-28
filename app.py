@@ -1,9 +1,13 @@
 import os
 import sqlite3
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, send_from_directory
 
 app = Flask(__name__)
 DB_FILE = "cloud_security.db"
+UPLOAD_FOLDER = "static"
+
+# Ensure static directory exists for storing live camera frames
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -19,16 +23,28 @@ init_db()
 def index():
     return render_template('index.html')
 
+@app.route('/api/upload_frame', methods=['POST'])
+def upload_frame():
+    """Receives live camera frame pushed from Raspberry Pi."""
+    if 'frame' in request.files:
+        file = request.files['frame']
+        file.save(os.path.join(UPLOAD_FOLDER, 'latest.jpg'))
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "No frame received"}), 400
+
+@app.route('/latest.jpg')
+def get_latest_frame():
+    """Serves the latest camera frame to any browser in the world."""
+    return send_from_directory(UPLOAD_FOLDER, 'latest.jpg')
+
 @app.route('/api/data', methods=['GET'])
 def get_data():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     
-    # Get recent logs
     c.execute("SELECT id, name, event_type, timestamp FROM Logs ORDER BY id DESC LIMIT 6")
     recent_logs = [{"id": r[0], "name": r[1], "event_type": r[2], "timestamp": r[3]} for r in c.fetchall()]
     
-    # Get statistics
     c.execute("SELECT COUNT(*) FROM Logs")
     total_entries = c.fetchone()[0]
     

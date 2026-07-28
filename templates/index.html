@@ -22,7 +22,7 @@
             background: #000; padding: 15px; border-radius: 12px; border: 2px solid #38bdf8; 
             text-align: center; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);
         }
-        .video-container img { width: 100%; max-width: 800px; border-radius: 8px; }
+        .video-container img { width: 100%; max-width: 800px; border-radius: 8px; min-height: 300px; object-fit: contain; }
         .value { font-size: 2.8rem; font-weight: bold; color: #f8fafc; margin-top: 10px; }
         h2, h3 { color: #94a3b8; font-size: 0.95rem; text-transform: uppercase; margin: 0; }
         .log-list { text-align: left; margin-top: 20px; }
@@ -54,11 +54,11 @@
             </div>
         </div>
 
-        <!-- Center Column: Live Video Feed -->
+        <!-- Center Column: Live Video Feed from Cloud -->
         <div class="video-container">
             <h2 style="color: white; margin-bottom: 15px; font-size: 1.2rem;">Live Camera Stream</h2>
-            <!-- Update the IP here to match your tethered IP -->
-            <img src="http://192.168.42.129:8080/video" alt="Camera offline or not connected to the local network.">
+            <!-- Clean Cloud Endpoint: Works on any network without local IPs -->
+            <img id="live_stream" src="/latest.jpg" alt="Waiting for live feed from Raspberry Pi...">
         </div>
 
         <!-- Right Column: Recent Activity -->
@@ -70,15 +70,19 @@
             </div>
             <div class="card" style="text-align: left;">
                 <h2>Recent Activity Log</h2>
-                <div class="log-list" id="recent_logs">
-                    <!-- Javascript populates this -->
-                </div>
+                <div class="log-list" id="recent_logs"></div>
             </div>
         </div>
 
     </div>
 
     <script>
+        // Continuously refresh the live image frame from Render (bypasses browser cache)
+        setInterval(() => {
+            const img = document.getElementById('live_stream');
+            img.src = '/latest.jpg?t=' + new Date().getTime();
+        }, 1000);
+
         async function updateData() {
             try {
                 const res = await fetch('/api/data');

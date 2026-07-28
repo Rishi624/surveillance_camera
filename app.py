@@ -1,13 +1,11 @@
 import os
 import sqlite3
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template
 
 app = Flask(__name__)
 DB_FILE = "cloud_security.db"
-UPLOAD_FOLDER = "static"
-
-# Ensure static directory exists for storing live camera frames
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# This must match the secret on your Pi
+API_SECRET = os.environ.get("API_SECRET", "super_secret_office_key_2026") 
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -19,23 +17,12 @@ def init_db():
 
 init_db()
 
+def require_auth(req):
+    return req.headers.get("Authorization") == f"Bearer {API_SECRET}"
+
 @app.route('/')
 def index():
     return render_template('index.html')
-
-@app.route('/api/upload_frame', methods=['POST'])
-def upload_frame():
-    """Receives live camera frame pushed from Raspberry Pi."""
-    if 'frame' in request.files:
-        file = request.files['frame']
-        file.save(os.path.join(UPLOAD_FOLDER, 'latest.jpg'))
-        return jsonify({"status": "success"})
-    return jsonify({"status": "error", "message": "No frame received"}), 400
-
-@app.route('/latest.jpg')
-def get_latest_frame():
-    """Serves the latest camera frame to any browser in the world."""
-    return send_from_directory(UPLOAD_FOLDER, 'latest.jpg')
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
@@ -55,7 +42,6 @@ def get_data():
     rejections = c.fetchone()[0]
     
     latest_entry = recent_logs[0] if recent_logs else {"name": "None", "timestamp": "-"}
-    
     conn.close()
     
     return jsonify({
@@ -68,6 +54,7 @@ def get_data():
 
 @app.route('/api/log_event', methods=['POST'])
 def log_event():
+    if not require_auth(request): return jsonify({"error": "Unauthorized"}), 401
     data = request.json or {}
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -78,6 +65,7 @@ def log_event():
 
 @app.route('/api/sync_persons', methods=['POST'])
 def sync_persons():
+    if not require_auth(request): return jsonify({"error": "Unauthorized"}), 401
     data = request.json or {}
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()

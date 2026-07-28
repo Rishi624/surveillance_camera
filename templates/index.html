@@ -5,31 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Surveillance Dashboard</title>
     <style>
-        body { 
-            background-color: #0f172a; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; padding: 20px; 
-        }
+        body { background-color: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
         h1 { text-align: center; color: #38bdf8; margin-bottom: 30px; letter-spacing: 1px; }
-        .container { 
-            display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; align-items: start; 
-            max-width: 1400px; margin: 0 auto;
-        }
-        .card { 
-            background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; 
-            text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .video-container { 
-            background: #000; padding: 15px; border-radius: 12px; border: 2px solid #38bdf8; 
-            text-align: center; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);
-        }
+        .container { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; align-items: start; max-width: 1400px; margin: 0 auto; }
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; margin-bottom: 20px; }
+        .video-container { background: #000; padding: 15px; border-radius: 12px; border: 2px solid #38bdf8; text-align: center; position: relative; }
         .video-container img { width: 100%; max-width: 800px; border-radius: 8px; min-height: 300px; object-fit: contain; }
+        .offline-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #f87171; font-weight: bold; font-size: 1.2rem; display: none; }
         .value { font-size: 2.8rem; font-weight: bold; color: #f8fafc; margin-top: 10px; }
-        h2, h3 { color: #94a3b8; font-size: 0.95rem; text-transform: uppercase; margin: 0; }
-        .log-list { text-align: left; margin-top: 20px; }
-        .log-item { 
-            background: #0f172a; padding: 12px; margin-bottom: 12px; border-radius: 8px; 
-            font-size: 0.9rem; border-left: 4px solid #38bdf8;
-        }
+        h2 { color: #94a3b8; font-size: 0.95rem; text-transform: uppercase; margin: 0; }
+        .log-item { background: #0f172a; padding: 12px; margin-top: 12px; border-radius: 8px; border-left: 4px solid #38bdf8; text-align: left; }
         .log-item.rejected { border-left-color: #f87171; }
         .log-item.approved { border-left-color: #4ade80; }
     </style>
@@ -38,7 +23,7 @@
     <h1>AI Security Command Center</h1>
     <div class="container">
         
-        <!-- Left Column: Statistics -->
+        <!-- Left Column -->
         <div>
             <div class="card">
                 <h2>Total Logged Events</h2>
@@ -54,35 +39,31 @@
             </div>
         </div>
 
-        <!-- Center Column: Live Video Feed from Cloud -->
+        <!-- Center Column -->
         <div class="video-container">
             <h2 style="color: white; margin-bottom: 15px; font-size: 1.2rem;">Live Camera Stream</h2>
-            <!-- Clean Cloud Endpoint: Works on any network without local IPs -->
-            <img id="live_stream" src="/latest.jpg" alt="Waiting for live feed from Raspberry Pi...">
+            <div class="offline-text" id="offline-msg">CAMERA IS NOT TURNED ON / OFFLINE</div>
+            
+            <!-- UPDATE THIS WITH YOUR STATIC NGROK DOMAIN -->
+            <img id="live_stream" src="https://YOUR_STATIC_DOMAIN.ngrok-free.app/video" 
+                 onerror="this.style.display='none'; document.getElementById('offline-msg').style.display='block';">
         </div>
 
-        <!-- Right Column: Recent Activity -->
+        <!-- Right Column -->
         <div>
             <div class="card">
                 <h2>Latest Entry</h2>
                 <div class="value" id="latest_name" style="font-size: 1.5rem; margin: 15px 0;">-</div>
                 <div style="font-size: 0.8rem; color: #94a3b8;" id="latest_time">-</div>
             </div>
-            <div class="card" style="text-align: left;">
+            <div class="card">
                 <h2>Recent Activity Log</h2>
-                <div class="log-list" id="recent_logs"></div>
+                <div id="recent_logs"></div>
             </div>
         </div>
-
     </div>
 
     <script>
-        // Continuously refresh the live image frame from Render (bypasses browser cache)
-        setInterval(() => {
-            const img = document.getElementById('live_stream');
-            img.src = '/latest.jpg?t=' + new Date().getTime();
-        }, 1000);
-
         async function updateData() {
             try {
                 const res = await fetch('/api/data');
@@ -113,12 +94,8 @@
                         </div>
                     `;
                 }).join('');
-                
-            } catch (e) {
-                console.error("Dashboard Sync Error:", e);
-            }
+            } catch (e) { console.error("Sync Error:", e); }
         }
-        
         setInterval(updateData, 2000);
         updateData();
     </script>

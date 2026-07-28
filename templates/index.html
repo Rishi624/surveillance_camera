@@ -9,11 +9,16 @@
         h1 { text-align: center; color: #38bdf8; margin-bottom: 30px; letter-spacing: 1px; }
         .container { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; align-items: start; max-width: 1400px; margin: 0 auto; }
         .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; text-align: center; margin-bottom: 20px; }
-        .video-container { background: #000; padding: 15px; border-radius: 12px; border: 2px solid #38bdf8; text-align: center; position: relative; }
-        .video-container img { width: 100%; max-width: 800px; border-radius: 8px; min-height: 300px; object-fit: contain; }
-        .offline-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #f87171; font-weight: bold; font-size: 1.2rem; display: none; }
         .value { font-size: 2.8rem; font-weight: bold; color: #f8fafc; margin-top: 10px; }
         h2 { color: #94a3b8; font-size: 0.95rem; text-transform: uppercase; margin: 0; }
+        
+        .photos-container { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; }
+        .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .photo-card { background: #0f172a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #334155; }
+        .photo-card img { width: 100%; border-radius: 4px; object-fit: cover; height: 180px; background: #334155; }
+        .photo-name { font-weight: bold; margin-top: 8px; font-size: 1rem; color: #f8fafc; }
+        .photo-event { font-size: 0.8rem; font-weight: bold; margin-top: 4px; }
+
         .log-item { background: #0f172a; padding: 12px; margin-top: 12px; border-radius: 8px; border-left: 4px solid #38bdf8; text-align: left; }
         .log-item.rejected { border-left-color: #f87171; }
         .log-item.approved { border-left-color: #4ade80; }
@@ -38,13 +43,12 @@
             </div>
         </div>
 
-        <!-- Center Column -->
-        <div class="video-container">
-            <h2 style="color: white; margin-bottom: 15px; font-size: 1.2rem;">Live Camera Stream</h2>
-            <div class="offline-text" id="offline-msg">CAMERA IS NOT TURNED ON / OFFLINE</div>
-            <!-- Dynamic Cloud Image (No Local IPs) -->
-            <img id="live_stream" src="/latest.jpg" 
-                 onerror="this.style.display='none'; document.getElementById('offline-msg').style.display='block';">
+        <!-- Center Column: 4 Recent Photos -->
+        <div class="photos-container">
+            <h2 style="color: white; margin-bottom: 5px; font-size: 1.2rem; text-align: center;">Recent Visitors</h2>
+            <div class="photo-grid" id="visitor_photos">
+                <!-- Javascript populates the 4 most recent photos -->
+            </div>
         </div>
 
         <!-- Right Column -->
@@ -62,13 +66,6 @@
     </div>
 
     <script>
-        setInterval(() => {
-            const img = document.getElementById('live_stream');
-            img.style.display = 'inline';
-            document.getElementById('offline-msg').style.display = 'none';
-            img.src = '/latest.jpg?t=' + new Date().getTime();
-        }, 1500);
-
         async function updateData() {
             try {
                 const res = await fetch('/api/data');
@@ -77,9 +74,28 @@
                 document.getElementById('total_entries').innerText = data.total_entries;
                 document.getElementById('auth_entries').innerText = data.auth_entries;
                 document.getElementById('rejections').innerText = data.rejections;
+                
                 document.getElementById('latest_name').innerText = data.latest_entry.name;
                 document.getElementById('latest_time').innerText = data.latest_entry.timestamp;
                 
+                // Build the list for the 4 recent photos
+                const photosDiv = document.getElementById('visitor_photos');
+                photosDiv.innerHTML = data.recent_logs.slice(0, 4).map(log => {
+                    let color = '#38bdf8';
+                    if (log.event_type.includes('REJECT') || log.event_type.includes('TIMEOUT')) color = '#f87171';
+                    else if (log.event_type.includes('APPROV') || log.event_type === 'ENTRY') color = '#4ade80';
+                    
+                    return `
+                        <div class="photo-card" style="border-bottom: 3px solid ${color};">
+                            <!-- onerror hides the broken image icon if a photo wasn't attached to this log -->
+                            <img src="/static/${log.id}.jpg" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\'><rect width=\\'100%\\' height=\\'100%\\' fill=\\'#1e293b\\'/></svg>';">
+                            <div class="photo-name">${log.name}</div>
+                            <div class="photo-event" style="color: ${color};">${log.event_type}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Build the text logs
                 const logsDiv = document.getElementById('recent_logs');
                 logsDiv.innerHTML = data.recent_logs.map(log => {
                     let logClass = '';
@@ -89,13 +105,15 @@
                     } else if (log.event_type.includes('APPROV') || log.event_type === 'ENTRY') {
                         logClass = 'approved'; color = '#4ade80';
                     }
-                    return `<div class="log-item ${logClass}">
-                                <strong style="color: white;">${log.name}</strong><br>
-                                <span style="color: ${color}; font-size: 0.85rem; font-weight: bold;">${log.event_type}</span><br>
-                                <span style="font-size: 0.75rem; color: #64748b;">${log.timestamp}</span>
-                            </div>`;
+                    return `
+                        <div class="log-item ${logClass}">
+                            <strong style="color: white;">${log.name}</strong><br>
+                            <span style="color: ${color}; font-size: 0.85rem; font-weight: bold;">${log.event_type}</span><br>
+                            <span style="font-size: 0.75rem; color: #64748b;">${log.timestamp}</span>
+                        </div>
+                    `;
                 }).join('');
-            } catch (e) {}
+            } catch (e) { console.error("Sync Error:", e); }
         }
         setInterval(updateData, 2000);
         updateData();

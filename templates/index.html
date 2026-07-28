@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surveillance Dashboard</title>
+    <style>
+        body { 
+            background-color: #0f172a; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; padding: 20px; 
+        }
+        h1 { text-align: center; color: #38bdf8; margin-bottom: 30px; letter-spacing: 1px; }
+        .container { 
+            display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; align-items: start; 
+            max-width: 1400px; margin: 0 auto;
+        }
+        .card { 
+            background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; 
+            text-align: center; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .video-container { 
+            background: #000; padding: 15px; border-radius: 12px; border: 2px solid #38bdf8; 
+            text-align: center; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);
+        }
+        .video-container img { width: 100%; max-width: 800px; border-radius: 8px; }
+        .value { font-size: 2.8rem; font-weight: bold; color: #f8fafc; margin-top: 10px; }
+        h2, h3 { color: #94a3b8; font-size: 0.95rem; text-transform: uppercase; margin: 0; }
+        .log-list { text-align: left; margin-top: 20px; }
+        .log-item { 
+            background: #0f172a; padding: 12px; margin-bottom: 12px; border-radius: 8px; 
+            font-size: 0.9rem; border-left: 4px solid #38bdf8;
+        }
+        .log-item.rejected { border-left-color: #f87171; }
+        .log-item.approved { border-left-color: #4ade80; }
+    </style>
+</head>
+<body>
+    <h1>AI Security Command Center</h1>
+    <div class="container">
+        
+        <!-- Left Column: Statistics -->
+        <div>
+            <div class="card">
+                <h2>Total Logged Events</h2>
+                <div class="value" id="total_entries">0</div>
+            </div>
+            <div class="card">
+                <h2>Authorized Entries</h2>
+                <div class="value" id="auth_entries" style="color: #4ade80;">0</div>
+            </div>
+            <div class="card">
+                <h2>Total Rejections</h2>
+                <div class="value" id="rejections" style="color: #f87171;">0</div>
+            </div>
+        </div>
+
+        <!-- Center Column: Live Video Feed -->
+        <div class="video-container">
+            <h2 style="color: white; margin-bottom: 15px; font-size: 1.2rem;">Live Camera Stream</h2>
+            <!-- Update the IP here to match your tethered IP -->
+            <img src="http://192.168.42.129:8080/video" alt="Camera offline or not connected to the local network.">
+        </div>
+
+        <!-- Right Column: Recent Activity -->
+        <div>
+            <div class="card">
+                <h2>Latest Entry</h2>
+                <div class="value" id="latest_name" style="font-size: 1.5rem; margin: 15px 0;">-</div>
+                <div style="font-size: 0.8rem; color: #94a3b8;" id="latest_time">-</div>
+            </div>
+            <div class="card" style="text-align: left;">
+                <h2>Recent Activity Log</h2>
+                <div class="log-list" id="recent_logs">
+                    <!-- Javascript populates this -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        async function updateData() {
+            try {
+                const res = await fetch('/api/data');
+                const data = await res.json();
+                
+                document.getElementById('total_entries').innerText = data.total_entries;
+                document.getElementById('auth_entries').innerText = data.auth_entries;
+                document.getElementById('rejections').innerText = data.rejections;
+                
+                document.getElementById('latest_name').innerText = data.latest_entry.name;
+                document.getElementById('latest_time').innerText = data.latest_entry.timestamp;
+                
+                const logsDiv = document.getElementById('recent_logs');
+                logsDiv.innerHTML = data.recent_logs.map(log => {
+                    let logClass = '';
+                    let color = '#38bdf8';
+                    if (log.event_type.includes('REJECT') || log.event_type.includes('TIMEOUT')) {
+                        logClass = 'rejected'; color = '#f87171';
+                    } else if (log.event_type.includes('APPROV') || log.event_type === 'ENTRY') {
+                        logClass = 'approved'; color = '#4ade80';
+                    }
+                    
+                    return `
+                        <div class="log-item ${logClass}">
+                            <strong style="color: white;">${log.name}</strong><br>
+                            <span style="color: ${color}; font-size: 0.85rem; font-weight: bold;">${log.event_type}</span><br>
+                            <span style="font-size: 0.75rem; color: #64748b;">${log.timestamp}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (e) {
+                console.error("Dashboard Sync Error:", e);
+            }
+        }
+        
+        setInterval(updateData, 2000);
+        updateData();
+    </script>
+</body>
+</html>
